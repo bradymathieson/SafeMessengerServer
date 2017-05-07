@@ -46,7 +46,7 @@ def add():
 
         # Make sure JSON message is complete!
         if "username" not in received_json or "ip" not in received_json or "port" not in received_json:
-            return "Not enough info provided"
+            return "Not enough info provided", 400
 
         username = received_json["username"]
         ip = received_json["ip"]
@@ -54,7 +54,7 @@ def add():
 
         # Make sure username is not already in the system.
         if username in user_data:
-            return "Username already taken"
+            return "Username already taken", 400
 
         # Make sure that IP is not already in system
         # if ip in current_ips:
@@ -85,7 +85,7 @@ def add():
             dump(current_ips, outfile)
         DATA_STRUCTURE_LOCK.release()
 
-        return "Successfully added:\n" + str(username) + ", " + str(ip) + ", " + str(port)
+        return "Successfully added:\n" + str(username) + ", " + str(ip) + ", " + str(port), 200
     else:
         return render_template('404.html'), 404
 
@@ -107,7 +107,7 @@ def remove():
 
         # Make sure JSON message is complete!
         if "username" not in received_json or "ip" not in received_json or "port" not in received_json:
-            return "Not enough info provided"
+            return "Not enough info provided", 400
 
         username = received_json["username"]
         ip = received_json["ip"]
@@ -115,13 +115,13 @@ def remove():
 
         # Make sure username is not already in the system.
         if username not in user_data:
-            return "Username not in system"
+            return "Username not in system", 400
 
         if ip != user_data[username]["ip"]:
-            return "Incorrect IP"
+            return "Incorrect IP", 400
 
         if port != user_data[username]["port"]:
-            return "Incorrect port"
+            return "Incorrect port", 400
 
         # Make sure that IP is not already in system
         # if ip in current_ips:
@@ -139,7 +139,7 @@ def remove():
             dump(current_ips, outfile)
         DATA_STRUCTURE_LOCK.release()
 
-        return "Successfully deleted:\n" + str(username) + ", " + str(ip) + ", " + str(port)
+        return "Successfully deleted:\n" + str(username) + ", " + str(ip) + ", " + str(port), 200
     else:
         return render_template('404.html'), 404
 
@@ -149,7 +149,7 @@ def current_users():
         user_data = dict()
         with open("user_data.json") as json_data:
             user_data = load(json_data)
-        return jsonify(user_data)
+        return jsonify(user_data), 200
     else:
         return render_template('404.html'), 404
 
