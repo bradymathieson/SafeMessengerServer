@@ -89,6 +89,27 @@ def add():
     else:
         return render_template('404.html'), 404
 
+@app.route('/v1/get_user_info', methods=["GET"])
+def get_user_info():
+    if request.method == "GET":
+
+        # Import files from external JSONs
+        user_data = dict()
+        DATA_STRUCTURE_LOCK.acquire()
+        with open("user_data.json") as json_data:
+            user_data = load(json_data)
+        DATA_STRUCTURE_LOCK.release()
+
+        if "username" not in request.args:
+            return "Not enough info provided", 400
+
+        username = request.args["username"]
+
+        if username not in user_data:
+            return "Username not found", 400
+
+        return jsonify(user_data[username])
+
 @app.route('/v1/remove_user', methods=["GET", "POST"])
 def remove():
     if request.method == "POST":
