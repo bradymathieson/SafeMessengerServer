@@ -8,23 +8,12 @@ This file creates your application.
 
 import os
 from flask import Flask, render_template, request, redirect, url_for, jsonify
-from json import loads
+from json import loads, load, dump
 from threading import Lock
 
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'this_should_be_configured')
-
-# Global structures
-user_data = {
-    "bradymath" : ("123.456.789.0", 5000),
-    "dxnia" : ("098.765.432.1", 5000)
-}
-
-current_ips = {
-    "123.456.789.0": 5000,
-    "098.765.432.1": 5000
-}
 
 DATA_STRUCTURE_LOCK = Lock()
 
@@ -39,7 +28,20 @@ def home():
 
 @app.route('/v1/add_user', methods=["GET", "POST"])
 def add():
+
     if request.method == "POST":
+
+        # Import files from external JSONs
+        user_data = dict()
+        current_ips = dict()
+        DATA_STRUCTURE_LOCK.acquire()
+        with open("user_data.json") as json_data:
+            user_data = load(json_data)
+        with open("current_ips.json") as json_data:
+            current_ips = load(json_data)
+        DATA_STRUCTURE_LOCK.release()
+
+        # Get POST data
         received_json = loads(request.data)
 
         # Make sure JSON message is complete!
@@ -63,15 +65,24 @@ def add():
             port = 1000
         elif port > 9999:
             port = 9999
-        while ip in current_ips and port == current_ips[ip]:
+        while ip in current_ips and port in current_ips[ip]:
             port += 1
             if port > 9999:
                 port = 1000
 
         # Add to data structures
         DATA_STRUCTURE_LOCK.acquire()
-        user_data[username] = (ip, port)
-        current_ips[ip] = port
+        user_data[username] = {
+            "ip" : ip,
+            "port" : port
+        }
+        if ip not in current_ips:
+            current_ips[ip] = list()
+        current_ips[ip].append(port)
+        with open('user_data.json', 'w') as outfile:
+            dump(user_data, outfile)
+        with open('current_ips.json', 'w') as outfile:
+            dump(current_ips, outfile)
         DATA_STRUCTURE_LOCK.release()
 
         return "Successfully added:\n" + str(username) + ", " + str(ip) + ", " + str(port)
@@ -81,6 +92,17 @@ def add():
 @app.route('/v1/remove_user', methods=["GET", "POST"])
 def remove():
     if request.method == "POST":
+
+        # Import files from external JSONs
+        user_data = dict()
+        current_ips = dict()
+        DATA_STRUCTURE_LOCK.acquire()
+        with open("user_data.json") as json_data:
+            user_data = load(json_data)
+        with open("current_ips.json") as json_data:
+            current_ips = load(json_data)
+        DATA_STRUCTURE_LOCK.release()
+
         received_json = loads(request.data)
 
         # Make sure JSON message is complete!
@@ -95,10 +117,10 @@ def remove():
         if username not in user_data:
             return "Username not in system"
 
-        if ip != user_data[username][0]:
+        if ip != user_data[username]["ip"]:
             return "Incorrect IP"
 
-        if port != user_data[username][1]:
+        if port != user_data[username]["port"]:
             return "Incorrect port"
 
         # Make sure that IP is not already in system
@@ -108,7 +130,13 @@ def remove():
         # Add to data structures
         DATA_STRUCTURE_LOCK.acquire()
         del user_data[username]
-        del current_ips[ip]
+        current_ips[ip].remove(port)
+        if len(current_ips[ip]) == 0:
+            del current_ips[ip]
+        with open('user_data.json', 'w') as outfile:
+            dump(user_data, outfile)
+        with open('current_ips.json', 'w') as outfile:
+            dump(current_ips, outfile)
         DATA_STRUCTURE_LOCK.release()
 
         return "Successfully deleted:\n" + str(username) + ", " + str(ip) + ", " + str(port)
@@ -118,6 +146,9 @@ def remove():
 @app.route('/v1/current_users', methods=["GET"])
 def current_users():
     if request.method == "GET":
+        user_data = dict()
+        with open("user_data.json") as json_data:
+            user_data = load(json_data)
         return jsonify(user_data)
     else:
         return render_template('404.html'), 404
